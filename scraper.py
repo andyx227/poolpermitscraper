@@ -31,11 +31,11 @@ def get_permit_info(source, permit_url, csv):
 
     soup = BeautifulSoup(source, "html.parser")
 
-    permit_status = soup.find("span", id=re.compile("PWebPermitStatus"))
-    if permit_status.text != "Permit Issued":
+    application_status = soup.find("span", id=re.compile("PWebPermitStatus"))
+    street_address = soup.find("span", id=re.compile("AddressDisplay"))
+    if street_address.text == "" or application_status.text == "Application Cancelled":
         return
 
-    street_address = soup.find("span", id=re.compile("AddressDisplay"))
     application_date = soup.find("span", id=re.compile("CreatedDate"))
     completed_date = soup.find("span", id=re.compile("CompletedDate"))
     applicant = soup.find("span", id=re.compile("WebApplicantDisplay"))

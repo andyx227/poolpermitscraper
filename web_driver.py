@@ -50,8 +50,9 @@ def get_list_of_links_to_permit(driver):
 
     for p in permits:
         try:
-            status = p.find_element_by_xpath(".//span[contains(@id, 'PWebPermitStatus')]")
-            if status.text != "Permit Issued":
+            application_status = p.find_element_by_xpath(".//span[contains(@id, 'PWebPermitStatus')]")
+            street_name = p.find_element_by_xpath(".//span[contains(@id, 'StreetName')]")
+            if street_name.text == "" or application_status.text == "Application Cancelled":
                 continue
 
             link = p.find_element_by_xpath(".//input[@value='View']").get_attribute("onclick")
