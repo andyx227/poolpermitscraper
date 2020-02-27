@@ -408,13 +408,6 @@ def update_file(filename):
         path_to_driver = "./chromedriver"
 
     driver = webdriver.Chrome(executable_path=path_to_driver)
-    try:
-        driver.get("https://developdallas.dallascityhall.com/Default.aspx?PossePresentation=ByAppDate")
-    except WebDriverException:
-        print("INTERNAL ERROR: WebDriver threw an exception. Possibly because user quit the browser window before page was loaded.")
-        close_driver(driver)
-        return False
-
     csv_rw_master = CSVReaderWriter(filename, create_new_file=False)
     
     # Get the csv file's name
