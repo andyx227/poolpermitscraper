@@ -7,10 +7,10 @@ def get_permit_info(source, permit_url, csv):
     """
     Extracts necessary information from the HTML source and
     saves it into a csv file. The source must only contain
-    info for a single permit. The permit must have a status
-    "Permit Issued".
+    info for a single permit. The permit must not have an
+    "Application Cancelled" status or an empty address.
 
-    Extracts the following information from @source:
+    Extracts and saves the following information from @source:
     - Application Date
     - Completed Date (if exists)
     - Address

@@ -18,11 +18,12 @@ from PoolPermitReaderWriter import CSVReaderWriter
 
 def get_list_of_links_to_permit(driver):
     """
-    Return a non-empty list of links to permit with a
-    "Permit Issued" status. Must contain at least two
-    links. This function should only be called when the
-    web page displays a list of multiple permits.
-    Unexpected behavior may occur otherwise.
+    Return a list of links to permits. Permits
+    must not have "Application Cancelled" status
+    and no empty address. This function should
+    only be called when the web page displays
+    a list of multiple permits. Unexpected
+    behavior may occur otherwise.
 
     Parameters
     ----------
@@ -32,8 +33,7 @@ def get_list_of_links_to_permit(driver):
     Returns
     -------
     list
-        List of links to each permit. Will contain at
-        least two links.
+        List of links to each permit.
 
     """
 
