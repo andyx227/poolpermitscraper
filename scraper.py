@@ -33,6 +33,8 @@ def get_permit_info(source, permit_url, csv):
 
     application_status = soup.find("span", id=re.compile("PWebPermitStatus"))
     street_address = soup.find("span", id=re.compile("AddressDisplay"))
+    if street_address is None or application_status is None:
+        return
     if street_address.text == "" or application_status.text == "Application Cancelled":
         return
 
