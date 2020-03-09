@@ -181,7 +181,7 @@ def write_updated_permits_to_csv(updated_permits, csv_rw):
         csv_rw.write_permit_to_csv(permit)
 
 
-def get_permit(driver, csv_rw):
+def get_permits(driver, csv_rw, delta, start_datetime):
     """
     Get permits from the source given by @driver.
     
@@ -194,33 +194,57 @@ def get_permit(driver, csv_rw):
         An instance of WebDriver from Selenium
     csv_rw: CSVReaderWriter
         An instance of CSVReaderWriter
+    delta: timedelta
+        The date difference between
+        the user's chosen date range.
+    start_datetime: datetime
+        The date from which to start
+        extracting permit info.
 
     """
 
-    try:
-        result = WebDriverWait(driver, 10).until(PermitResult())
-        if result == ResultType.SINGLE:
-            # print("Single result")
-            scraper.get_permit_info(driver.page_source, driver.current_url, csv_rw)
-        elif result == ResultType.MULTIPLE:
-            # print("Multiple result")
-            get_permit_from_links(driver, get_list_of_links_to_permit(driver), csv_rw)
-        elif result == ResultType.NONE:
-            # print("No result")
-            pass
-        else:
-            raise NoSuchElementException
-    except NoSuchWindowException:
-        raise
-    except TimeoutException:
-        raise
-    except NoSuchElementException:
-        raise
-    except WebDriverException:
-        raise
+    date = start_datetime
+    for _ in range(delta.days + 1):
+        try:
+            application_date, application_type, search_button = get_form_for_permit_search(driver)
+        except NoSuchWindowException:
+            raise
+        except NoSuchElementException:
+            raise
+        except WebDriverException:
+            raise
+
+        application_date.clear()
+        application_date.send_keys(date.strftime("%b %d, %Y"))  # Date is in the format: mmm dd, yyyy
+        application_type.select_by_value("Swimming Pool Permit")
+        search_button.click()
+
+        try:
+            result = WebDriverWait(driver, 10).until(PermitResult())
+            if result == ResultType.SINGLE:
+                # print("Single result")
+                scraper.get_permit_info(driver.page_source, driver.current_url, csv_rw)
+            elif result == ResultType.MULTIPLE:
+                # print("Multiple result")
+                get_permit_from_links(driver, get_list_of_links_to_permit(driver), csv_rw)
+            elif result == ResultType.NONE:
+                # print("No result")
+                pass
+            else:
+                raise NoSuchElementException
+        except NoSuchWindowException:
+            raise
+        except TimeoutException:
+            raise
+        except NoSuchElementException:
+            raise
+        except WebDriverException:
+            raise
+
+        date = date + datetime.timedelta(days=1)
 
 
-def get_form_for_permit_search(driver, url):
+def get_form_for_permit_search(driver):
     """
     Navigate to the permit search page and
     extract the entry fields for application
@@ -231,8 +255,6 @@ def get_form_for_permit_search(driver, url):
     ----------
     driver: WebDriver
         An instance of WebDriver from Selenium
-    url: str
-        Url that leads to the permit search page.
 
     Returns
     -------
@@ -244,16 +266,10 @@ def get_form_for_permit_search(driver, url):
     """
 
     try:
-        driver.get(url)
+        driver.get("https://developdallas.dallascityhall.com/Default.aspx?PossePresentation=ByAppDate")
     except WebDriverException:
         raise WebDriverException
 
-    # Extract the following inputs from the website:
-    # ----------------------------------------------
-    #               Application Date
-    #               Application Type
-    #               Search button
-    # ----------------------------------------------
     try:
         application_date = driver.find_element_by_id("CreatedDate_1209113_S0")
         application_type = Select(driver.find_element_by_name("JobApplicationTypeSearch_1209113_S0"))
@@ -421,60 +437,29 @@ def run_bot(start_datetime, end_datetime, delta):
     filename = start_date + "_to_" + end_date + "_permits"
     csv_rw = CSVReaderWriter(filename, create_new_file=True)   # Prepare object to interact with csv file
 
-    date = start_datetime
-    # --------------------------------------------
-    # DEBUG - Use Dec 20, 2019 for single result
-    # DEBUG - Use Dec 17, 2019 for multiple result
-    # DEBUG - Use Dec 25, 2019 for no result
-    # --------------------------------------------
-    for _ in range(delta.days + 1):
-        try:
-            application_date, application_type, search_button = get_form_for_permit_search(driver, "https://developdallas.dallascityhall.com/Default.aspx?PossePresentation=ByAppDate")
-        except NoSuchWindowException:
-            print("WINDOW CLOSED ERROR: The browser window has been closed.")
-            csv_rw.close_csv()
-            return False
-        except NoSuchElementException:
-            print("NO ELEMENT FOUND ERROR: Could not find necessary element from web page. "
-                  "Layout of site might have changed, or no internet connection.")
-            close_driver(driver)
-            csv_rw.close_csv()
-            return False
-        except WebDriverException:
-            print("INTERNAL ERROR: WebDriver threw an exception. Possibly because user quit the browser window before page was loaded.")
-            close_driver(driver)
-            csv_rw.close_csv()
-            return False
-
-        application_date.clear()
-        application_date.send_keys(date.strftime("%b %d, %Y"))  # Date is in the format: mmm dd, yyyy
-        application_type.select_by_value("Swimming Pool Permit")
-        search_button.click()
-
-        try:
-            get_permit(driver, csv_rw)
-        except NoSuchWindowException:
-            print("WINDOW CLOSED ERROR: The browser window has been closed.")
-            csv_rw.close_csv()
-            return False
-        except NoSuchElementException:
-            print("NO ELEMENT FOUND ERROR: Could not find necessary element from web page. "
-                  "Layout of site might have changed, or no internet connection.")
-            close_driver(driver)
-            csv_rw.close_csv()
-            return False
-        except TimeoutException:
-            print("TIMEOUT ERROR: could not find any result in the 10 second time limit. Check internet connection.")
-            close_driver(driver)
-            csv_rw.close_csv()
-            return False
-        except WebDriverException:
-            print("INTERNAL ERROR: WebDriver threw an exception. Possibly because user quit the browser window before page was loaded.")
-            close_driver(driver)
-            csv_rw.close_csv()
-            return False
-
-        date = date + datetime.timedelta(days=1)
+    # Get pool permits starting from the start date
+    try:
+        get_permits(driver, csv_rw, delta, start_datetime)
+    except NoSuchWindowException:
+        print("WINDOW CLOSED ERROR: The browser window has been closed.")
+        csv_rw.close_csv()
+        return False
+    except NoSuchElementException:
+        print("NO ELEMENT FOUND ERROR: Could not find necessary element from web page. "
+              "Layout of site might have changed, or no internet connection.")
+        close_driver(driver)
+        csv_rw.close_csv()
+        return False
+    except TimeoutException:
+        print("TIMEOUT ERROR: could not find any result in the 10 second time limit. Check internet connection.")
+        close_driver(driver)
+        csv_rw.close_csv()
+        return False
+    except WebDriverException:
+        print("INTERNAL ERROR: WebDriver threw an exception. Possibly because user quit the browser window before page was loaded.")
+        close_driver(driver)
+        csv_rw.close_csv()
+        return False
 
     # Get full address for each permit
     try:
