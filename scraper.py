@@ -93,3 +93,26 @@ def get_permit_completion_date(source):
 
     soup = BeautifulSoup(source, "html.parser")
     return soup.find("span", id=re.compile("CompletedDate")).text
+
+
+def get_address_with_zip_code(source):
+    """
+    Get the address (with zip code) from the
+    USPS website.
+
+    Parameters
+    ----------
+    source: str
+        The HTML source of the USPS website containing the
+        address with zip code.
+
+    Returns
+    -------
+    str
+        The address with zip code.
+
+    """
+
+    soup = BeautifulSoup(source, "html.parser")
+    return soup.find("div", class_="zipcode-result-address").text.strip()
+

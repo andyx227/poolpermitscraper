@@ -13,6 +13,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 import scraper
 from EC_permit_result import PermitResult
 from EC_permit_result import ResultType
+from EC_zip_code_result import ZipCodeResult
+from EC_zip_code_result import ZipCodeResultType
 from PoolPermitReaderWriter import CSVReaderWriter
 
 
@@ -232,6 +234,13 @@ def get_form_for_permit_search(driver, url):
     url: str
         Url that leads to the permit search page.
 
+    Returns
+    -------
+    tuple
+        A 3-tuple containing the input fields for
+        the Application Date, Application Type, and
+        the Search Button.
+
     """
 
     try:
@@ -257,6 +266,109 @@ def get_form_for_permit_search(driver, url):
         raise WebDriverException
 
     return application_date, application_type, search_button
+
+
+def get_form_for_zip_code_lookup(driver):
+    """
+    Navigate to the USPS Zip Code Lookup page
+    and extract the following input fields:
+
+    - Street Address
+    - City
+    - State
+    - "Find" Button
+
+    Parameters
+    ----------
+    driver: WebDriver
+        An instance of WebDriver from Selenium
+
+    Returns
+    -------
+    tuple
+        A 4-tuple containing the input fields for
+        the Street Address, City, State, and the
+        "Find" button.
+
+    """
+    try:
+        driver.get("https://tools.usps.com/zip-code-lookup.htm?byaddress")
+    except WebDriverException:
+        raise WebDriverException
+
+    try:
+        address = driver.find_element_by_xpath("//input[@id='tAddress']")
+        city = driver.find_element_by_xpath("//input[@id='tCity']")
+        state = Select(driver.find_element_by_xpath("//select[@id='tState']"))
+        find_button = driver.find_element_by_xpath("//a[@id='zip-by-address']")
+    except NoSuchWindowException:
+        raise NoSuchWindowException
+    except NoSuchElementException:
+        raise NoSuchElementException
+    except WebDriverException:
+        raise WebDriverException
+
+    return address, city, state, find_button
+
+
+def get_full_address_for_permits(driver, permits):
+    """
+    Go through all permits in @permits and
+    find the full address (with zip code) for
+    the address in each permit. The USPS
+    website is used for zip code lookup.
+
+    Parameters
+    ----------
+    driver: WebDriver
+        An instance of WebDriver from Selenium.
+    permits: list
+        A list of pool permits from a CSVReaderWriter object.
+
+    Returns
+    -------
+    list
+        A list containing pool permits where
+        each permit has the full address.
+
+    """
+
+    for permit in permits:
+        try:
+            address, city, state, find_button = get_form_for_zip_code_lookup(driver)
+        except NoSuchWindowException:
+            raise NoSuchWindowException
+        except NoSuchElementException:
+            raise NoSuchElementException
+        except WebDriverException:
+            raise WebDriverException
+
+        address.clear()
+        address.send_keys(permit["Address"])
+        city.clear()
+        city.send_keys("DALLAS")
+        state.select_by_value("TX")
+        find_button.click()
+
+        try:
+            result = WebDriverWait(driver, 10).until(ZipCodeResult())
+            if result == ZipCodeResultType.ERROR:
+                permit["Address"] += "\nDALLAS, TX [NO ZIP FOUND]"
+            elif result == ZipCodeResultType.FOUND:
+                full_address = scraper.get_address_with_zip_code(driver.page_source)
+                permit["Address"] = full_address
+            else:
+                raise NoSuchElementException
+        except NoSuchWindowException:
+            raise
+        except TimeoutException:
+            raise
+        except NoSuchElementException:
+            raise
+        except WebDriverException:
+            raise
+
+    return permits
 
 
 def run_bot(start_datetime, end_datetime, delta):
@@ -363,6 +475,30 @@ def run_bot(start_datetime, end_datetime, delta):
             return False
 
         date = date + datetime.timedelta(days=1)
+
+    # Get full address for each permit
+    try:
+        csv_rw.permits = get_full_address_for_permits(driver, csv_rw.permits)
+    except NoSuchWindowException:
+        print("WINDOW CLOSED ERROR: The browser window has been closed.")
+        csv_rw.close_csv()
+        return False
+    except NoSuchElementException:
+        print("NO ELEMENT FOUND ERROR: Could not find necessary element from web page. "
+              "Layout of site might have changed, or no internet connection.")
+        close_driver(driver)
+        csv_rw.close_csv()
+        return False
+    except TimeoutException:
+        print("TIMEOUT ERROR: could not find any result in the 10 second time limit. Check internet connection.")
+        close_driver(driver)
+        csv_rw.close_csv()
+        return False
+    except WebDriverException:
+        print("INTERNAL ERROR: WebDriver threw an exception. Possibly because user quit the browser window before page was loaded.")
+        close_driver(driver)
+        csv_rw.close_csv()
+        return False
 
     close_driver(driver)
     csv_rw.save_csv()
