@@ -334,6 +334,9 @@ def get_full_address_for_permits(driver, permits):
     the address in each permit. The USPS
     website is used for zip code lookup.
 
+    If no valid address is found on the website,
+    remove the permit from the list.
+
     Parameters
     ----------
     driver: WebDriver
@@ -369,7 +372,7 @@ def get_full_address_for_permits(driver, permits):
         try:
             result = WebDriverWait(driver, 10).until(ZipCodeResult())
             if result == ZipCodeResultType.ERROR:
-                permit["Address"] += "\nDALLAS, TX [NO ZIP FOUND]"
+                permit["Address"] = ""  # "" denotes invalid address from USPS website
             elif result == ZipCodeResultType.FOUND:
                 full_address = scraper.get_address_with_zip_code(driver.page_source)
                 permit["Address"] = full_address
@@ -384,7 +387,8 @@ def get_full_address_for_permits(driver, permits):
         except WebDriverException:
             raise
 
-    return permits
+    # Remove permits with empty addresses
+    return [permit for permit in permits if permit["Address"] != ""]
 
 
 def run_bot(start_datetime, end_datetime, delta):

@@ -6,7 +6,7 @@ from selenium.common.exceptions import NoSuchWindowException
 
 class ZipCodeResult:
     def __init__(self):
-        self.xpathToErrorElement = "//div[@class='server-error address-tCity help-block']"
+        self.xpathToErrorElement = "//div[@class='server-error address-tAddress help-block']"
         self.xpathToZipCodeResultElement = "//div[@class='zipcode-result-address']"
 
     def __call__(self, driver):
